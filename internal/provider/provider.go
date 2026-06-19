@@ -109,7 +109,6 @@ func (p *revolutProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *revolutProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		resources.NewPlanResource,
-		resources.NewPlanVariationResource,
 		resources.NewWebhookResource,
 	}
 }
@@ -117,7 +116,6 @@ func (p *revolutProvider) Resources(_ context.Context) []func() resource.Resourc
 func (p *revolutProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		datasources.NewPlanDataSource,
-		datasources.NewPlanVariationDataSource,
 		datasources.NewWebhookDataSource,
 	}
 }

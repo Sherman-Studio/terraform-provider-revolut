@@ -52,10 +52,18 @@ func (f *fakePlanServer) stampIDs(body map[string]any) map[string]any {
 	for vi := range vars {
 		v, _ := vars[vi].(map[string]any)
 		v["id"] = f.id("var")
+		// The real API never echoes a per-variation trial_duration; mirror that so
+		// the Computed attribute resolves to null.
+		delete(v, "trial_duration")
 		phases, _ := v["phases"].([]any)
 		for pi := range phases {
 			p, _ := phases[pi].(map[string]any)
 			p["id"] = f.id("phase")
+			items, _ := p["subscription_items"].([]any)
+			for ii := range items {
+				it, _ := items[ii].(map[string]any)
+				it["id"] = f.id("item")
+			}
 		}
 	}
 	return plan
@@ -115,19 +123,19 @@ resource "revolut_plan" "test" {
 
   variations = [
     {
-      trial_duration = "P7D"
       phases = [
         {
           ordinal        = 1
           cycle_duration = "P1M"
           cycle_count    = 12
-          amount         = 9900
-          currency       = "GBP"
           subscription_items = [
             {
+              name     = "Base"
+              unit     = "month"
               type     = "flat"
               amount   = 9900
               quantity = 1
+              currency = "GBP"
             },
           ]
         },
@@ -180,18 +188,20 @@ func TestAccPlanResource_lifecycle(t *testing.T) {
 					resource.TestCheckResourceAttr("revolut_plan.test", "created_at", "2026-06-19T00:00:00Z"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.#", "1"),
 					resource.TestMatchResourceAttr("revolut_plan.test", "variations.0.id", regexp.MustCompile(`^var-`)),
-					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.trial_duration", "P7D"),
+					resource.TestCheckNoResourceAttr("revolut_plan.test", "variations.0.trial_duration"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.#", "1"),
 					resource.TestMatchResourceAttr("revolut_plan.test", "variations.0.phases.0.id", regexp.MustCompile(`^phase-`)),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.ordinal", "1"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.cycle_duration", "P1M"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.cycle_count", "12"),
-					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.amount", "9900"),
-					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.currency", "GBP"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.#", "1"),
+					resource.TestMatchResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.id", regexp.MustCompile(`^item-`)),
+					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.name", "Base"),
+					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.unit", "month"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.type", "flat"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.amount", "9900"),
 					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.quantity", "1"),
+					resource.TestCheckResourceAttr("revolut_plan.test", "variations.0.phases.0.subscription_items.0.currency", "GBP"),
 				),
 			},
 			// Import: passthrough id -> Read recovers all attributes.

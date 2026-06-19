@@ -6,10 +6,21 @@ import (
 )
 
 // SubscriptionItem is a line item within a plan phase.
+//
+// The live Revolut API (sandbox-validated 2026-06-19) requires every item to
+// carry name, unit and type. A "flat" item additionally requires quantity; a
+// "usage" item additionally requires code. amount/currency are echoed back on
+// the item. (The phase-level amount/currency are only used when a phase has no
+// subscription_items.)
 type SubscriptionItem struct {
-	Type     string `json:"type"` // flat | usage
-	Amount   *int64 `json:"amount,omitempty"`
-	Quantity *int64 `json:"quantity,omitempty"`
+	ID       string  `json:"id,omitempty"`
+	Name     string  `json:"name"`
+	Unit     string  `json:"unit"`
+	Type     string  `json:"type"` // flat | usage
+	Code     *string `json:"code,omitempty"`
+	Quantity *int64  `json:"quantity,omitempty"`
+	Amount   *int64  `json:"amount,omitempty"`
+	Currency *string `json:"currency,omitempty"`
 }
 
 // Phase is a billing stage within a plan variation.
@@ -49,9 +60,11 @@ type CreatePlanRequest struct {
 	Variations    []Variation `json:"variations"`
 }
 
-// ListPlansResponse is the paginated GET /subscription-plans envelope.
+// ListPlansResponse is the paginated GET /subscription-plans envelope. The live
+// API returns the list under the "subscription_plans" key (sandbox-validated
+// 2026-06-19), not "plans".
 type ListPlansResponse struct {
-	Plans         []Plan `json:"plans"`
+	Plans         []Plan `json:"subscription_plans"`
 	NextPageToken string `json:"next_page_token,omitempty"`
 }
 

@@ -52,9 +52,14 @@ type planResourceModel struct {
 
 func planSubscriptionItemAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
+		"id":       types.StringType,
+		"name":     types.StringType,
+		"unit":     types.StringType,
 		"type":     types.StringType,
-		"amount":   types.Int64Type,
+		"code":     types.StringType,
 		"quantity": types.Int64Type,
+		"amount":   types.Int64Type,
+		"currency": types.StringType,
 	}
 }
 
@@ -136,8 +141,9 @@ func (r *planResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 							Computed:    true,
 						},
 						"trial_duration": schema.StringAttribute{
-							Description: "ISO-8601 trial duration for this variation.",
-							Optional:    true,
+							Description: "ISO-8601 trial duration for this variation. Server-assigned and read-only: " +
+								"the create API does not accept a per-variation trial (set trial_duration at the plan level instead).",
+							Computed: true,
 						},
 						"phases": schema.ListNestedAttribute{
 							Description: "Billing stages of this variation.",
@@ -169,20 +175,40 @@ func (r *planResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 										Optional:    true,
 									},
 									"subscription_items": schema.ListNestedAttribute{
-										Description: "Line items billed within this phase.",
+										Description: "Line items billed within this phase. When a phase has items, pricing lives on the items (not the phase). Every item requires name, unit and type; a flat item also requires quantity; a usage item also requires code.",
 										Optional:    true,
 										NestedObject: schema.NestedAttributeObject{
 											Attributes: map[string]schema.Attribute{
-												"type": schema.StringAttribute{
-													Description: "Item type: flat or usage.",
+												"id": schema.StringAttribute{
+													Description: "Server-assigned item UUID.",
+													Computed:    true,
+												},
+												"name": schema.StringAttribute{
+													Description: "Item display name. Required by the API.",
 													Required:    true,
+												},
+												"unit": schema.StringAttribute{
+													Description: "Billing unit label (e.g. month, seat, call). Required by the API.",
+													Required:    true,
+												},
+												"type": schema.StringAttribute{
+													Description: "Item type: flat or usage (lowercase).",
+													Required:    true,
+												},
+												"code": schema.StringAttribute{
+													Description: "Usage meter code. Required for usage items; omit for flat items.",
+													Optional:    true,
+												},
+												"quantity": schema.Int64Attribute{
+													Description: "Item quantity. Required for flat items.",
+													Optional:    true,
 												},
 												"amount": schema.Int64Attribute{
 													Description: "Item amount in integer minor units.",
 													Optional:    true,
 												},
-												"quantity": schema.Int64Attribute{
-													Description: "Item quantity.",
+												"currency": schema.StringAttribute{
+													Description: "ISO 4217 currency code for this item (e.g. GBP).",
 													Optional:    true,
 												},
 											},
@@ -315,9 +341,14 @@ type phaseModel struct {
 }
 
 type subscriptionItemModel struct {
+	ID       types.String `tfsdk:"id"`
+	Name     types.String `tfsdk:"name"`
+	Unit     types.String `tfsdk:"unit"`
 	Type     types.String `tfsdk:"type"`
-	Amount   types.Int64  `tfsdk:"amount"`
+	Code     types.String `tfsdk:"code"`
 	Quantity types.Int64  `tfsdk:"quantity"`
+	Amount   types.Int64  `tfsdk:"amount"`
+	Currency types.String `tfsdk:"currency"`
 }
 
 // planVariationsToAPI decodes the config variations list into client structs.
@@ -360,9 +391,13 @@ func planVariationsToAPI(ctx context.Context, list types.List, diags *diag.Diagn
 				p.SubscriptionItems = make([]client.SubscriptionItem, 0, len(sims))
 				for _, sim := range sims {
 					p.SubscriptionItems = append(p.SubscriptionItems, client.SubscriptionItem{
+						Name:     sim.Name.ValueString(),
+						Unit:     sim.Unit.ValueString(),
 						Type:     sim.Type.ValueString(),
-						Amount:   planOptInt64(sim.Amount),
+						Code:     planOptString(sim.Code),
 						Quantity: planOptInt64(sim.Quantity),
+						Amount:   planOptInt64(sim.Amount),
+						Currency: planOptString(sim.Currency),
 					})
 				}
 			}
@@ -445,9 +480,14 @@ func planItemsToList(items []client.SubscriptionItem) (types.List, diag.Diagnost
 	objs := make([]attr.Value, 0, len(items))
 	for _, it := range items {
 		obj, d := types.ObjectValue(planSubscriptionItemAttrTypes(), map[string]attr.Value{
+			"id":       planStringOrNull(it.ID),
+			"name":     planStringOrNull(it.Name),
+			"unit":     planStringOrNull(it.Unit),
 			"type":     types.StringValue(it.Type),
-			"amount":   planPtrToInt64(it.Amount),
+			"code":     planPtrToString(it.Code),
 			"quantity": planPtrToInt64(it.Quantity),
+			"amount":   planPtrToInt64(it.Amount),
+			"currency": planPtrToString(it.Currency),
 		})
 		diags.Append(d...)
 		objs = append(objs, obj)

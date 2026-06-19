@@ -16,25 +16,37 @@ A Revolut subscription plan. Create-and-replace only: the Merchant API has no pl
 # A Revolut subscription plan. NOTE: plans cannot be updated or deleted via the
 # API — any change recreates the plan, and `terraform destroy` only removes it
 # from state (the plan is orphaned in Revolut).
+#
+# Variations are a nested attribute of the plan (the Revolut Merchant API has no
+# standalone plan-variation endpoint — variations only exist inside a plan).
 resource "revolut_plan" "pro" {
   name           = "Pro"
   trial_duration = "P14D"
 
-  variations {
-    trial_duration = "P14D"
+  variations = [
+    {
+      phases = [
+        {
+          ordinal        = 1
+          cycle_duration = "P1M"
 
-    phases {
-      ordinal        = 1
-      cycle_duration = "P1M"
-      amount         = 900 # £9.00 in minor units
-      currency       = "GBP"
-
-      subscription_items {
-        type   = "flat"
-        amount = 900
-      }
+          # When a phase carries subscription_items, pricing lives on the items.
+          # Every item requires name, unit and type; a flat item also requires
+          # quantity; a usage item also requires code.
+          subscription_items = [
+            {
+              name     = "Base"
+              unit     = "month"
+              type     = "flat"
+              quantity = 1
+              amount   = 900 # £9.00 in minor units
+              currency = "GBP"
+            }
+          ]
+        }
+      ]
     }
-  }
+  ]
 }
 
 output "pro_plan_id" {
@@ -68,13 +80,10 @@ Required:
 
 - `phases` (Attributes List) Billing stages of this variation. (see [below for nested schema](#nestedatt--variations--phases))
 
-Optional:
-
-- `trial_duration` (String) ISO-8601 trial duration for this variation.
-
 Read-Only:
 
 - `id` (String) Server-assigned variation UUID (referenceable when creating a subscription).
+- `trial_duration` (String) ISO-8601 trial duration for this variation. Server-assigned and read-only: the create API does not accept a per-variation trial (set trial_duration at the plan level instead).
 
 <a id="nestedatt--variations--phases"></a>
 ### Nested Schema for `variations.phases`
@@ -89,7 +98,7 @@ Optional:
 - `amount` (Number) Charge amount in integer minor units (9900 = £99.00).
 - `currency` (String) ISO 4217 currency code (e.g. GBP).
 - `cycle_count` (Number) Number of cycles this phase runs. Omit/null for indefinite.
-- `subscription_items` (Attributes List) Line items billed within this phase. (see [below for nested schema](#nestedatt--variations--phases--subscription_items))
+- `subscription_items` (Attributes List) Line items billed within this phase. When a phase has items, pricing lives on the items (not the phase). Every item requires name, unit and type; a flat item also requires quantity; a usage item also requires code. (see [below for nested schema](#nestedatt--variations--phases--subscription_items))
 
 Read-Only:
 
@@ -100,9 +109,17 @@ Read-Only:
 
 Required:
 
-- `type` (String) Item type: flat or usage.
+- `name` (String) Item display name. Required by the API.
+- `type` (String) Item type: flat or usage (lowercase).
+- `unit` (String) Billing unit label (e.g. month, seat, call). Required by the API.
 
 Optional:
 
 - `amount` (Number) Item amount in integer minor units.
-- `quantity` (Number) Item quantity.
+- `code` (String) Usage meter code. Required for usage items; omit for flat items.
+- `currency` (String) ISO 4217 currency code for this item (e.g. GBP).
+- `quantity` (Number) Item quantity. Required for flat items.
+
+Read-Only:
+
+- `id` (String) Server-assigned item UUID.

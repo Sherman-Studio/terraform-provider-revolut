@@ -57,8 +57,15 @@ export REVOLUT_API_KEY="sk_..."
 | Type | Description |
 |------|-------------|
 | `revolut_plan` (resource/data) | Subscription plan with inline pricing variations, phases, and subscription items. |
-| `revolut_plan_variation` (resource/data) | A pricing variation of a plan (read-through; variations are created inline with the plan). |
 | `revolut_webhook` (resource/data) | A Merchant webhook (url + events), with a sensitive, rotatable signing secret. |
+
+> **Plan variations have no standalone resource/data source.** The Revolut
+> Merchant API exposes **no** standalone plan-variation endpoint (every
+> `*-variations`/`subscription-plans/{id}/variations` path returns 404, verified
+> against the live sandbox). Variations exist only nested inside a plan and are
+> created inline with `POST /subscription-plans`. Configure them as the nested
+> `variations` attribute on `revolut_plan`; read them back from
+> `revolut_plan.variations[*]` or the `revolut_plan` data source.
 
 ## Important caveats
 
@@ -67,7 +74,7 @@ export REVOLUT_API_KEY="sk_..."
 The Revolut Merchant API has **no plan update endpoint and no plan delete
 endpoint**. Consequences in this provider:
 
-- **Every** `revolut_plan` (and `revolut_plan_variation`) attribute is
+- **Every** `revolut_plan` attribute (including the nested `variations` tree) is
   `RequiresReplace` — any change recreates the plan.
 - `terraform destroy` only **removes the plan from Terraform state**. The plan
   **still exists in your Revolut account** (it is orphaned). The provider emits a

@@ -30,13 +30,13 @@ func TestProviderMetadata(t *testing.T) {
 
 func TestProviderResourceCount(t *testing.T) {
 	p := New("test")()
-	if got := len(p.Resources(context.Background())); got != 3 {
-		t.Fatalf("Resources count = %d, want 3", got)
+	if got := len(p.Resources(context.Background())); got != 2 {
+		t.Fatalf("Resources count = %d, want 2", got)
 	}
 	var _ []func() resource.Resource = p.Resources(context.Background())
 
-	if got := len(p.DataSources(context.Background())); got != 3 {
-		t.Fatalf("DataSources count = %d, want 3", got)
+	if got := len(p.DataSources(context.Background())); got != 2 {
+		t.Fatalf("DataSources count = %d, want 2", got)
 	}
 	var _ []func() datasource.DataSource = p.DataSources(context.Background())
 }
