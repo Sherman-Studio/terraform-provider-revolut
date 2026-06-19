@@ -1,0 +1,27 @@
+# Compiled provider binary
+/terraform-provider-revolut
+terraform-provider-revolut_v*
+
+# GoReleaser output
+/dist/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraformrc
+terraform.rc
+crash.log
+crash.*.log
+
+# Go
+*.test
+*.out
+/vendor/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
