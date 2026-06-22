@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -59,11 +60,17 @@ func (r *webhookResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"url": schema.StringAttribute{
 				Description: "HTTPS endpoint that receives webhook events. Mutable in place.",
 				Required:    true,
+				Validators: []validator.String{
+					httpsURL(),
+				},
 			},
 			"events": schema.SetAttribute{
 				Description: "Event types to subscribe to (e.g. ORDER_COMPLETED). Mutable in place.",
 				Required:    true,
 				ElementType: types.StringType,
+				Validators: []validator.Set{
+					knownEvents(),
+				},
 			},
 			"signing_secret": schema.StringAttribute{
 				Description: "Server-generated signing secret (wsk_...). Sensitive; never an input.",
